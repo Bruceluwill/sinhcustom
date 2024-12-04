@@ -49,6 +49,7 @@ private:
         // AscendC::Add(zLocal, xLocal, yLocal, this->tileLength);
         AscendC::Exp(yLocal, xLocal, this->tileLength);
         AscendC::Muls(xLocal, xLocal , -1 , this->tileLength);
+        AscendC::Exp(xLocal, xLocal, this->tileLength);
         AscendC::Sub(yLocal, yLocal, xLocal, this->tileLength);
         AscendC::Muls(yLocal, yLocal , 1/2 , this->tileLength);
         outQueuey.EnQue<DTYPE>(yLocal);
