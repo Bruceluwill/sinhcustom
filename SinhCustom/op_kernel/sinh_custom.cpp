@@ -2,10 +2,11 @@
 using namespace AscendC;
 constexpr int32_t BUFFER_NUM = 2;
 
+template<typename DTYPE>
 class KernelSinh {
 public:
     __aicore__ inline KernelSinh() {}
-    __aicore__ inline void Init(/* 开发者填充参数列表 */)
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, uint32_t totalLength, uint32_t tileNum)
     {
         //考生补充初始化代码
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
@@ -47,12 +48,11 @@ private:
         AscendC::LocalTensor<DTYPE> xLocal = inQueueX.DeQue<DTYPE>();
         AscendC::LocalTensor<DTYPE> yLocal = outQueueY.AllocTensor<DTYPE>();
         // AscendC::Add(zLocal, xLocal, yLocal, this->tileLength);
-        AscendC::Exp(yLocal, xLocal, this->tileLength);
-        AscendC::Muls(xLocal, xLocal , -1 , this->tileLength);
         AscendC::Exp(xLocal, xLocal, this->tileLength);
-        AscendC::Sub(yLocal, yLocal, xLocal, this->tileLength);
-        AscendC::Muls(yLocal, yLocal , 1/2 , this->tileLength);
-        outQueuey.EnQue<DTYPE>(yLocal);
+        AscendC::Reciprocal(yLocal, xLocal ,  this->tileLength);
+        AscendC::Sub(yLocal, xLocal, yLocal, this->tileLength);
+        AscendC::Muls(yLocal, yLocal , (half)0.5 ,this->tileLength);
+        outQueueY.EnQue<DTYPE>(yLocal);
         inQueueX.FreeTensor(xLocal);
 
     }
@@ -82,7 +82,7 @@ private:
 
 extern "C" __global__ __aicore__ void sinh_custom(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
-    KernelSinh op;
+    KernelSinh<half> op;
     //补充init和process函数调用内容
     op.Init(x, y, tiling_data.totalLength, tiling_data.tileNum);
     op.Process();
