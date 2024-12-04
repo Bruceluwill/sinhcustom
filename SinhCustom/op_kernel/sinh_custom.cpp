@@ -17,10 +17,8 @@ public:
 
         xGm.SetGlobalBuffer((__gm__ DTYPE *)x + this->blockLength * AscendC::GetBlockIdx(), this->blockLength);
         yGm.SetGlobalBuffer((__gm__ DTYPE *)y + this->blockLength * AscendC::GetBlockIdx(), this->blockLength);
-        zGm.SetGlobalBuffer((__gm__ DTYPE *)z + this->blockLength * AscendC::GetBlockIdx(), this->blockLength);
         pipe.InitBuffer(inQueueX, BUFFER_NUM, this->tileLength * sizeof(DTYPE));
-        pipe.InitBuffer(inQueueY, BUFFER_NUM, this->tileLength * sizeof(DTYPE));
-        pipe.InitBuffer(outQueueZ, BUFFER_NUM, this->tileLength * sizeof(DTYPE));
+        pipe.InitBuffer(outQueueY, BUFFER_NUM, this->tileLength * sizeof(DTYPE));
 
     }
     __aicore__ inline void Process()
@@ -39,30 +37,30 @@ private:
     {
         //考生补充算子代码
         AscendC::LocalTensor<DTYPE> xLocal = inQueueX.AllocTensor<DTYPE>();
-        AscendC::LocalTensor<DTYPE> yLocal = inQueueY.AllocTensor<DTYPE>();
         AscendC::DataCopy(xLocal, xGm[progress * this->tileLength], this->tileLength);
-        AscendC::DataCopy(yLocal, yGm[progress * this->tileLength], this->tileLength);
         inQueueX.EnQue(xLocal);
-        inQueueY.EnQue(yLocal);
     }
     __aicore__ inline void Compute(int32_t progress)
     {
+
         //考生补充算子计算代码
         AscendC::LocalTensor<DTYPE> xLocal = inQueueX.DeQue<DTYPE>();
-        AscendC::LocalTensor<DTYPE> yLocal = inQueueY.DeQue<DTYPE>();
-        AscendC::LocalTensor<DTYPE> zLocal = outQueueZ.AllocTensor<DTYPE>();
-        AscendC::Add(zLocal, xLocal, yLocal, this->tileLength);
-        outQueueZ.EnQue<DTYPE>(zLocal);
+        AscendC::LocalTensor<DTYPE> yLocal = outQueueY.AllocTensor<DTYPE>();
+        // AscendC::Add(zLocal, xLocal, yLocal, this->tileLength);
+        AscendC::Exp(yLocal, xLocal, this->tileLength);
+        AscendC::Muls(xLocal, xLocal , -1 , this->tileLength);
+        AscendC::Sub(yLocal, yLocal, xLocal, this->tileLength);
+        AscendC::Muls(yLocal, yLocal , 1/2 , this->tileLength);
+        outQueuey.EnQue<DTYPE>(yLocal);
         inQueueX.FreeTensor(xLocal);
-        inQueueY.FreeTensor(yLocal);
 
     }
     __aicore__ inline void CopyOut(int32_t progress)
     {
         //考生补充算子代码
-        AscendC::LocalTensor<DTYPE> zLocal = outQueueZ.DeQue<DTYPE>();
-        AscendC::DataCopy(zGm[progress * this->tileLength], zLocal, this->tileLength);
-        outQueueZ.FreeTensor(zLocal);
+        AscendC::LocalTensor<DTYPE> yLocal = outQueueY.DeQue<DTYPE>();
+        AscendC::DataCopy(yGm[progress * this->tileLength], yLocal, this->tileLength);
+        outQueueY.FreeTensor(yLocal);
     }
 
 private:
